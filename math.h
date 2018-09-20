@@ -1,3 +1,10 @@
+/*
+ * math module header file
+ *
+ * This module contains math-related, foundational code upon which the
+ * outsorced inference builds upon.
+ *
+ */
 #ifndef MATH_H
 #define MATH_H
 
@@ -12,13 +19,12 @@
 #include <sstream>
 #include <vector>
 
-
-
 #define MASK 4294967295 //2^32-1
 #define PRIME 2305843009213693951 //2^61-1
 
 typedef unsigned long long uint64;
 
+/* for information on these functions, read math.c */
 uint64 myPow(uint64 x, uint64 b);
 uint64 myMod(uint64 x);
 uint64 myModPow(uint64 b, uint64 e);
