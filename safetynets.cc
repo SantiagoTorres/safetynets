@@ -17,6 +17,7 @@
  */
 #include "math.h"
 #include "safetynets.h"
+#include "util.h"
 
 using namespace std;
 
@@ -91,22 +92,6 @@ uint64 evaluate_I(uint64* q, uint64* r, int d)
                 myMod(myModMult(q[k],r[k]) + 
                       myModMult(1+PRIME-q[k], 1+PRIME-r[k])) );
     return ans; 
-}
-
-runtime update_time(runtime t, runtime nt)
-{
-    t.unverifiable += nt.unverifiable;
-    t.prover += nt.prover;
-    t.verifier += nt.verifier;
-    return t;
-}
-
-runtime set_time(runtime t, double ut, double pt, double vt)
-{
-    t.unverifiable = ut;
-    t.prover = pt;
-    t.verifier = vt;
-    return t;
 }
 
 void check_bias_layer(uint64* q, uint64* r, int d, uint64 n, uint64* Iin,
@@ -655,35 +640,8 @@ int main(int argc, char** argv)
 {
     if (argc!=2)
         cout << "Enter the architecture file as argument." << endl, exit(1);
-    ifstream archfile(argv[1]);
 
-    string line;
-    vector <int*> layers;
-    
-    // get batch size
-    double batch;
-    getline(archfile, line);
-    stringstream(line) >> batch;
-    batch = ceil(log2(batch));
-
-    // read input size
-    double prevl, currl;
-    getline(archfile, line);
-    stringstream(line) >> prevl;
-    prevl = ceil(log2(prevl));
-
-    // read layer sizes
-    while (getline(archfile, line))
-    {
-        stringstream(line) >> currl;
-        currl = ceil(log2(currl));
-        int *n = new int[3];
-        n[0] = batch;
-        n[1] = prevl;
-        n[2] = currl;
-        layers.push_back(n);
-        prevl = currl;
-    }
+    vector <int*> layers = read_architecture_from_file(argv[1]);
 
     int L = layers.size();
     int e, d, f;
@@ -724,11 +682,8 @@ int main(int argc, char** argv)
     cout << "total additional prover time = " << total_time.prover << endl;
     cout << "total verifier time = " << total_time.verifier << endl;
 
-
-    archfile.close();
     for (int i=0; i<layers.size(); i++)
         delete layers[i];
 
     return 0;
 }
-

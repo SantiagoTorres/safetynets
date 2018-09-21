@@ -12,10 +12,4 @@
 #include <sstream>
 #include <vector>
 
-struct runtime {
-    double unverifiable;
-    double prover;
-    double verifier;
-};
-
 #endif // SAFETYNETS_H
