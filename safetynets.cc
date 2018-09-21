@@ -1,28 +1,38 @@
-// Implementation of the SafetyNets framework as described in https://arxiv.org/pdf/1706.10268.pdf.
-// It is built upon Thaler's IP protocol for matrix-matrix multiplication available at 
-// http://people.cs.georgetown.edu/jthaler/Tcode.htm
-// This work is licensed under CC BY-NC-SA 3.0. Refer to the licesne file for more information.
-
-#include <cstdlib>
-#include <iostream>
-#include <time.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string>
-#include <fstream>
-
-#include <sstream>
-#include <vector>
-
-#define MASK 4294967295 //2^32-1
-#define PRIME 2305843009213693951 //2^61-1
-
-typedef unsigned long long uint64;
+/* safetynets:
+ *
+ *  Implementation of the SafetyNets framework as described in
+ *  https://arxiv.org/pdf/1706.10268.pdf.
+ *
+ * Author:
+ *  Zahra Ghodsi <zghodsi@nyu.edu>
+ *
+ * Notes:
+ *   - This program is built upon Thaler's IP protocol for matrix-matrix
+ *     multiplication available at
+ *   http://people.cs.georgetown.edu/jthaler/Tcode.htm
+ *
+ * Licensing:
+ *  This work is licensed under CC BY-NC-SA 3.0. Refer to the licesne file for
+ *  more information.
+ */
 #include "math.h"
+#include "safetynets.h"
 
 using namespace std;
 
-//extrapolate the polynomial implied by vector vec of length n to location r
+/*
+ * extrap:
+ *    extrapolate the polynomial implied by vector vec of length n to location
+ *    r
+ *
+ * Params:
+ *    uint64* vec: the vector to extrapolate
+ *    uint64 n: the length of the vector vec
+ *    uint64 r: the location to extrapolate.
+ *
+ * Returns:
+ *    uint64: the result of the extrapolated point at point r
+ */
 uint64 extrap(uint64* vec, uint64 n, uint64 r)
 {
     uint64 result=0;
@@ -35,34 +45,53 @@ uint64 extrap(uint64* vec, uint64 n, uint64 r)
             if (i>j)
                 mult=myModMult(myModMult(mult, myMod(r-j+PRIME)), inv(i-j) );
             if (i<j)
-                mult=myModMult(myModMult(mult, myMod(r-j+PRIME)), inv(myMod(i+PRIME-j)) );
+                mult=myModMult(myModMult(mult, myMod(r-j+PRIME)),
+                        inv(myMod(i+PRIME-j)) );
         }
         result=myMod(result+myModMult(mult, vec[i]));
     }
     return result;
 }
 
-//fills in high-order variable xi wih ri
+/* 
+ * updateV:
+ *    fills in high-order variable xi wih ri
+ *
+ * Params:
+ *    uint64 *V: the vector to operate in.
+ *    int num_new: the number of new values on xi to fill
+ *    uin64 ri: the value to fill the vector with
+ *
+ * Returns:
+ *    Nothing.
+ */
 void updateV(uint64* V, int num_new, uint64 ri)
 {
     for(int i = 0; i < num_new; i++)
         V[i] = myMod(myModMult(V[i], 1+PRIME-ri) + myModMult(V[i+num_new], ri));
 }
 
-// evaluate the MLE of I at q and random location r in O(logn)
+/*
+ * evaluate_I:
+ *    evaluate the MLE of I at q and random location r in O(logn)
+ *
+ * Params:
+ *    uint64 q: vector q to evaluate the MLE in.
+ *    uint64 r: a pointer to the random location r
+ *    int d: the length up to which the MLE will be evaluated at.
+ *
+ * Returns:
+ *    uint64: the result of the computation.
+ */
 uint64 evaluate_I(uint64* q, uint64* r, int d)
 {
     uint64 ans=1;
     for(uint64 k = 0; k < d; k++)
-        ans = myModMult(ans, myMod(myModMult(q[k],r[k]) + myModMult(1+PRIME-q[k], 1+PRIME-r[k])) );
+        ans = myModMult(ans,
+                myMod(myModMult(q[k],r[k]) + 
+                      myModMult(1+PRIME-q[k], 1+PRIME-r[k])) );
     return ans; 
 }
-
-struct runtime {
-    double unverifiable;
-    double prover;
-    double verifier;
-};
 
 runtime update_time(runtime t, runtime nt)
 {
@@ -80,7 +109,8 @@ runtime set_time(runtime t, double ut, double pt, double vt)
     return t;
 }
 
-void check_bias_layer(uint64* q, uint64* r, int d, uint64 n, uint64* Iin, uint64* Vin, uint64* B, uint64** F, uint64* check)
+void check_bias_layer(uint64* q, uint64* r, int d, uint64 n, uint64* Iin,
+        uint64* Vin, uint64* B, uint64** F, uint64* check)
 {
     //initialize Iin values
     uint64 Iin_tmp;
@@ -111,7 +141,8 @@ void check_bias_layer(uint64* q, uint64* r, int d, uint64 n, uint64* Iin, uint64
         {
             temp0 = myModMult(Iin[k], S[k]);
             temp1 = myModMult(Iin[k+steps], S[k+steps]);
-            cross = myModMult(myMod(PRIME - Iin[k] + 2*Iin[k+steps]), myMod(PRIME - S[k] + 2*S[k+steps]));
+            cross = myModMult(myMod(PRIME - Iin[k] + 2*Iin[k+steps]),
+                              myMod(PRIME - S[k] + 2*S[k+steps]));
 
             F[i][0] = myMod(F[i][0]+temp0);
             F[i][1] = myMod(F[i][1]+temp1);
@@ -128,7 +159,8 @@ void check_bias_layer(uint64* q, uint64* r, int d, uint64 n, uint64* Iin, uint64
 runtime verify_bias(int d, int i, int L)
 {
     uint64 n = myPow(2,d);
-  //inputs to activation layer
+
+    //inputs to activation layer
     uint64* Vin = (uint64*) malloc(n*sizeof(uint64));
     for (int i=0; i<n; i++)
         Vin[i] = rand() % 100;
@@ -179,8 +211,8 @@ runtime verify_bias(int d, int i, int L)
     uint64 a1 = 0;          // ai-1
     uint64 a2 = 0;          // ai    
 
-    // At the output layer, verifier evaluates a random point in the MLE of the returned matrix
-    // For middle layers, this assertion is returned by prover
+    // At the output layer, verifier evaluates a random point in the MLE of the
+    // returned matrix. For middle layers, this assertion is returned by prover
     clock_t otime = clock();
     a1 = evaluate_V_i(d, n, S, q);
     otime = clock()-otime;
@@ -202,8 +234,9 @@ runtime verify_bias(int d, int i, int L)
 
     for (int i=1; i<d; i++)
     {
-        if ((myMod(F[i][0] + F[i][1]) != check[i-1]) && (myMod(F[i][0] + F[i][1]) + PRIME != check[i-1]))
-            cout<< "bias layer check " << i << " failed" << endl, exit(1);
+        if ((myMod(F[i][0] + F[i][1]) != check[i-1]) && 
+                (myMod(F[i][0] + F[i][1]) + PRIME != check[i-1]))
+            cout << "bias layer check " << i << " failed" << endl, exit(1);
     }
 
     Ieval = evaluate_I(q,r,d);
@@ -238,9 +271,31 @@ runtime verify_bias(int d, int i, int L)
 }
 
 
-//V0 is supposed to be list of vals of matrix A in row-major order, V1 vals of matrix B.
-//This function has been modified to incorporate matrix-matrix mult of size (m,n)*(n,p)
-void sum_check_mm(uint64* V0, uint64* V1, int d, int e, int f, int mi, int ni, uint64*r, uint64** F, uint64* z, uint64* check)
+/*
+ * sum_check_mm:
+ *    check the result of the matrix multiplication:
+ *
+ * Params:
+ *   uint64* V0: the list of values of matrix A in row-major order, 
+ *   uint64* V1: the list of values of matrix B.
+ *   int d: 
+ *   int e:
+ *   int f:
+ *   int mi:
+ *   int ni:
+ *   uint64* r:
+ *   uint64** F:
+ *   uint64* z:
+ *   uint64* check:
+ *
+ * Returns:
+ *   nothing:
+ *
+ * Notes:
+ *   This function has been modified to incorporate matrix-matrix mult of size (m,n)*(n,p)
+ */
+void sum_check_mm(uint64* V0, uint64* V1, int d, int e, int f, int mi, int ni,
+        uint64*r, uint64** F, uint64* z, uint64* check)
 {
 
     for(int i = 0; i < f+e; i++)
@@ -272,7 +327,9 @@ void sum_check_mm(uint64* V0, uint64* V1, int d, int e, int f, int mi, int ni, u
         {
             temp0 = myModMult(V0[i], V1[i]);
             temp1 = myModMult(V0[i + (num_terms>>1)], V1[i + (num_terms>>1)]);
-            cross = myModMult( myMod(PRIME - V0[i] +  2*V0[i + (num_terms>>1)]), myMod(PRIME - V1[i] + 2*V1[i + (num_terms>>1)]));
+
+            cross = myModMult(myMod(PRIME - V0[i] + 2*V0[i + (num_terms>>1)]), 
+                              myMod(PRIME - V1[i] + 2*V1[i + (num_terms>>1)]));
 
             F[round][0] = myMod(F[round][0] + temp0);
             F[round][1] = myMod(F[round][1] + temp1);
@@ -345,14 +402,16 @@ runtime verify_mm(int e, int d, int f, int i, int L)
     double pt = ((double) t)/CLOCKS_PER_SEC;
     cout << "additional P time = " << pt << endl;
 
-    // set the high order of values to be those of corresponding to index i, and the low order values of z to be those corresponding to index k
+    // set the high order of values to be those of corresponding to index i,
+    // and the low order values of z to be those corresponding to index k
     for(int i = 0; i < d; i++)
         z[i] = r[i]; //set the low-order values of z
     for(int i = d; i < d+e; i++)
         z[i] = r[f+i]; //set the low-order values of z	
 
-    // assertion about the input of this layer returned by the prover (output of sqr activation layer)
-    // when reaching first layer, this is evaluated by the verifer
+    // assertion about the input of this layer returned by the prover (output
+    // of sqr activation layer) when reaching first layer, this is evaluated by
+    // the verifer
     clock_t itime = clock();
     uint64 Aeval = evaluate_V_i(d+e, m*n, Vcopy, z);
     itime = clock()-itime;
@@ -363,8 +422,9 @@ runtime verify_mm(int e, int d, int f, int i, int L)
 
     for (int i=1; i<d; i++)
     {
-        if ((myMod(F[i][0] + F[i][1]) != check[i-1]) && (myMod(F[i][0] + F[i][1]) + PRIME != check[i-1]))
-            cout<< "matrix-matrix mult layer check " << i << " failed" << endl, exit(1);
+        if ((myMod(F[i][0] + F[i][1]) != check[i-1]) && 
+                (myMod(F[i][0] + F[i][1]) + PRIME != check[i-1]))
+            cout << "matrix-matrix mult layer check " << i << " failed" << endl, exit(1);
     }
 
     // Beval corresponds to layer weight (w), which the verifier evaluates
@@ -399,8 +459,11 @@ runtime verify_mm(int e, int d, int f, int i, int L)
 }
 
 
-// Protocol reduces verifying a claim that v_i-1(q)=a_i-1 to verifying that v_i(q')=a_i
-void sum_check_sqr_activation(uint64* q, uint64* r, int d, uint64 n, uint64* Iin, uint64* I_t, uint64* Vin, uint64* V_t, uint64* K_t, uint64** F, uint64* check)
+// Protocol reduces verifying a claim that v_i-1(q)=a_i-1 to verifying that
+// v_i(q')=a_i
+void sum_check_sqr_activation(uint64* q, uint64* r, int d, uint64 n, uint64*
+        Iin, uint64* I_t, uint64* Vin, uint64* V_t, uint64* K_t, uint64** F,
+        uint64* check)
 {
     //initialize Iin values
     uint64 Iin_tmp;
@@ -461,7 +524,9 @@ void sum_check_sqr_activation(uint64* q, uint64* r, int d, uint64 n, uint64* Iin
 
             for (int m=0; m<4; m++)
             {
-                F[i][m] = myMod(F[i][m]+myModMult(myModMult(parsumV[m],parsumV[m]),parsumI[m]));
+                F[i][m] = myMod(F[i][m] + myModMult(myModMult(parsumV[m],
+                                                              parsumV[m]),
+                                                              parsumI[m]));
                 parsumV[m]=0;
                 parsumI[m]=0;
             }
@@ -490,7 +555,8 @@ runtime verify_sqr_activation(int d)
     for (int i=0; i<n; i++)
         Vin[i] = rand() % 100;
 
-    // table for V_tilda holding contributions of initial Vs at each round, updated every round
+    // table for V_tilda holding contributions of initial Vs at each round,
+    // updated every round
     uint64* V_t = (uint64*) calloc(n, sizeof(uint64));
 
     //Iin values
@@ -532,7 +598,8 @@ runtime verify_sqr_activation(int d)
     uint64 a2 = 0;          // ai    
     
     t=clock();
-    // prover evaluates the output of the sqr activation layer (input to mm mult layer)
+    // prover evaluates the output of the sqr activation layer (input to mm
+    // mult layer)
     a1 = evaluate_V_i(d, n, A, q);
 
     sum_check_sqr_activation(q, r, d, n, Iin, I_t, Vin, V_t, K_t, F, check);
@@ -540,7 +607,8 @@ runtime verify_sqr_activation(int d)
     double pt = ((double) t)/CLOCKS_PER_SEC;
     cout << "additional prover time = " << pt << endl;
 
-    // assertion about the input of this layer returned by the prover (output of bias layer)
+    // assertion about the input of this layer returned by the prover (output
+    // of bias layer)
     Vieval = evaluate_V_i(d,n,Vin, r);
 
     clock_t v_t=clock();
@@ -549,7 +617,8 @@ runtime verify_sqr_activation(int d)
 
     for (int i=1; i<d; i++)
     {
-        if ((myMod(F[i][0] + F[i][1]) != check[i-1]) && (myMod(F[i][0] + F[i][1]) + PRIME != check[i-1]))
+        if ((myMod(F[i][0] + F[i][1]) != check[i-1]) && 
+                (myMod(F[i][0] + F[i][1]) + PRIME != check[i-1]))
             cout<< "square activation layer check " << i << " failed." << endl, exit(1);
     }
 
